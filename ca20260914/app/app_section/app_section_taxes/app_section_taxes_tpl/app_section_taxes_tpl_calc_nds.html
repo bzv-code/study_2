@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор НДС онлайн — расчет налога за секунды</title>
+    <link rel="stylesheet" href="/static/app_section_taxes/app_section_taxes_static/app_section_taxes_static_style_global.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>📊 Калькулятор НДС</h1>
+            <a href="/taxes" class="back-link">← Вернуться к разделу Налоги</a>
+        </header>
+
+        <div class="calculator-wrapper">
+            <div class="intro-text">
+                <p>Быстрый и точный расчёт налога на добавленную стоимость. Выберите нужный режим: начислите налог к цене без НДС, извлеките его из итоговой суммы или определите полную стоимость, зная только размер налога.</p>
+            </div>
+
+            <form method="post" action="/taxes/nds" class="calc-form" id="ndsForm">
+
+                <div class="form-group">
+                    <label>Тип расчета:</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="action" value="add" {% if input_action == 'add' %}checked{% endif %} onchange="updateInputLabel()">
+                            <span>Начислить НДС</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="action" value="extract" {% if input_action == 'extract' %}checked{% endif %} onchange="updateInputLabel()">
+                            <span>Выделить НДС</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="action" value="by_vat" {% if input_action == 'by_vat' %}checked{% endif %} onchange="updateInputLabel()">
+                            <span>Рассчитать сумму по НДС</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="amount" id="amountLabel">Сумма без НДС (₽):</label>
+                    <input
+                        type="text"
+                        inputmode="decimal"
+                        id="amount"
+                        name="amount"
+                        value="{{ input_amount }}"
+                        required
+                        placeholder="Введите сумму"
+                        class="no-spinner decimal-only"
+                        autocomplete="off"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="rate">Ставка НДС (%):</label>
+                    <input
+                        type="text"
+                        inputmode="numeric"
+                        pattern="[0-9]*"
+                        id="rate"
+                        name="rate"
+                        min="0"
+                        max="100"
+                        value="{{ input_rate }}"
+                        required
+                        placeholder="Например, 20 или 22"
+                        class="no-spinner integer-only"
+                        autocomplete="off"
+                    >
+                </div>
+
+                <button type="submit" class="submit-button">Рассчитать</button>
+            </form>
+
+            {% if error %}
+            <div class="error-message">
+                ⚠️ {{ error }}
+            </div>
+            {% endif %}
+
+            {% if result %}
+            <div class="result-box">
+                <h3>Результат расчета:</h3>
+                <div class="result-item">
+                    <span>Сумма без НДС:</span>
+                    <strong>{{ result.net_amount }} ₽</strong>
+                </div>
+                <div class="result-item highlight">
+                    <span>Сумма НДС ({{ result.rate }}%):</span>
+                    <strong>{{ result.vat_amount }} ₽</strong>
+                </div>
+                <div class="result-item success">
+                    <span>Сумма с НДС:</span>
+                    <strong>{{ result.total_amount }} ₽</strong>
+                </div>
+                <div class="result-note">
+                    {% if result.action == 'add' %}
+                        ℹ️ <strong>Начисление НДС:</strong> К сумме {{ result.input_amount }} ₽ добавлен НДС {{ result.vat_amount }} ₽. Итого: {{ result.total_amount }} ₽.
+                    {% elif result.action == 'extract' %}
+                        ℹ️ <strong>Выделение НДС:</strong> Из суммы {{ result.input_amount }} ₽ выделен НДС {{ result.vat_amount }} ₽. Сумма без НДС: {{ result.net_amount }} ₽.
+                    {% elif result.action == 'by_vat' %}
+                        ℹ️ <strong>Расчет по НДС:</strong> При сумме НДС {{ result.input_amount }} ₽, сумма без НДС составляет {{ result.net_amount }} ₽, а общая сумма: {{ result.total_amount }} ₽.
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- =====================================================================
+             КАК НАЧИСЛИТЬ НДС
+             ===================================================================== -->
+        <section class="info-section">
+            <h2>Как начислить НДС на сумму</h2>
+            <p>Начисление НДС — это операция, при которой налог добавляется к стоимости товара или услуги сверху. Этот режим используется, когда вы знаете «чистую» цену без налога и вам нужно определить, сколько составит налог и какова будет итоговая сумма для покупателя.</p>
+
+            <div class="formula-box">
+                <div class="formula">
+                    НДС = Сумма без НДС × Ставка / 100
+                </div>
+            </div>
+
+            <h3>Разберём на примере</h3>
+            <p>Предположим, вы продаёте товар по цене 1 000 рублей без учёта налога. Ставка НДС — 22%.</p>
+
+            <div class="example-steps">
+                <div class="step">
+                    <strong>Шаг 1.</strong> Определяем размер налога:
+                    <div class="calculation">НДС = 1 000 × 22 / 100 = 220 руб.</div>
+                </div>
+                <div class="step">
+                    <strong>Шаг 2.</strong> Прибавляем налог к исходной цене:
+                    <div class="calculation">Итого = 1 000 + 220 = 1 220 руб.</div>
+                </div>
+            </div>
+
+            <p class="example-result">
+                <strong>Результат:</strong> Покупатель заплатит 1 220 руб., из которых 220 руб. — это НДС, который продавец перечислит в бюджет.
+            </p>
+
+            <p>Этот режим чаще всего применяется при формировании цен в прайс-листах, составлении счетов и коммерческих предложений, когда базовая стоимость указывается без налога.</p>
+        </section>
+
+        <!-- =====================================================================
+             КАК ВЫДЕЛИТЬ НДС
+             ===================================================================== -->
+        <section class="info-section">
+            <h2>Как выделить НДС из суммы</h2>
+            <p>Выделение НДС — это обратная операция: у вас есть итоговая сумма, в которой налог уже «сидит» внутри, и вам нужно вычислить, какая именно часть этой суммы является налогом, а какая — чистой стоимостью.</p>
+
+            <div class="formula-box">
+                <div class="formula">
+                    НДС = Сумма с НДС × Ставка / (100 + Ставка)
+                </div>
+            </div>
+
+            <h3>Разберём на примере</h3>
+            <p>Вы получили счёт на 1 000 рублей, и в нём указано «в том числе НДС 22%». Нужно понять, сколько здесь налога.</p>
+
+            <div class="example-steps">
+                <div class="step">
+                    <strong>Шаг 1.</strong> Вычисляем сумму налога:
+                    <div class="calculation">НДС = 1 000 × 22 / (100 + 22) = 1 000 × 22 / 122 = 180,33 руб.</div>
+                </div>
+                <div class="step">
+                    <strong>Шаг 2.</strong> Находим стоимость без налога:
+                    <div class="calculation">Без НДС = 1 000 − 180,33 = 819,67 руб.</div>
+                </div>
+            </div>
+
+            <p class="example-result">
+                <strong>Результат:</strong> Из 1 000 руб. на долю НДС приходится 180,33 руб., а реальная стоимость товара или услуги составляет 819,67 руб.
+            </p>
+
+            <p>Обратите внимание: при выделении используется так называемая <strong>расчётная ставка</strong> — дробь вида «ставка / (100 + ставка)». Для 22% это 22/122, для 20% — 20/120, для 10% — 10/110. Именно поэтому нельзя просто умножить сумму на 22% — вы получите неверный результат.</p>
+        </section>
+
+        <!-- =====================================================================
+             FAQ
+             ===================================================================== -->
+        <section class="info-section">
+            <h2>Ответы на частые вопросы о расчёте НДС</h2>
+
+            <div class="faq-list">
+                <div class="faq-item">
+                    <h3>Чем отличается «начислить НДС» от «выделить НДС»?</h3>
+                    <p>Это две противоположные операции. <strong>Начислить</strong> — значит взять сумму без налога и прибавить к ней НДС сверху. Например, к 10 000 руб. добавляем 22% и получаем 12 200 руб. <strong>Выделить</strong> — значит взять готовую сумму, в которой налог уже содержится, и «вытащить» его оттуда. Из 12 200 руб. при ставке 22% мы извлекаем 2 200 руб. налога, а «чистая» стоимость оказывается равна 10 000 руб.</p>
+                </div>
+
+                <div class="faq-item">
+                    <h3>В каких ситуациях применяют начисление НДС?</h3>
+                    <p>Всякий раз, когда вы работаете с ценой, в которой налог ещё не учтён. Типичные случаи: формирование розничной цены от себестоимости, составление коммерческого предложения, выставление счёта, где базовая стоимость указана без налога, расчёт стоимости услуг по договору. Во всех этих случаях вы берёте исходную сумму, умножаете на ставку и прибавляете результат.</p>
+                </div>
+
+                <div class="faq-item">
+                    <h3>Когда нужно именно выделять НДС?</h3>
+                    <p>Когда перед вами сумма, в которой налог уже «зашит». Это типично для входящих счетов от поставщиков, кассовых чеков, актов выполненных работ, где написано «в том числе НДС». Бухгалтеру важно знать точную сумму налога, чтобы корректно отразить её в декларации и принять к вычету. Просто умножить на ставку здесь нельзя — нужна формула с делением на (100 + ставка).</p>
+                </div>
+
+                <div class="faq-item">
+                    <h3>Почему при выделении делят на 122, 120 или 110, а не на 100?</h3>
+                    <p>Потому что итоговая сумма уже включает в себя и базу (100%), и сам налог. Представьте: при ставке 22% каждый рубль конечной цены состоит из 100 копеек «чистой» стоимости и 22 копеек налога. Вместе это 122 копейки на каждый рубль базы. Поэтому, чтобы найти долю налога в общей сумме, мы делим ставку на эту «расширенную» базу: 22/122. Аналогично для других ставок: 20/120, 10/110.</p>
+                </div>
+
+                <div class="faq-item">
+                    <h3>Что значит фраза «в том числе НДС» в документах?</h3>
+                    <p>Эта формулировка говорит о том, что указанная сумма уже содержит налог внутри себя. Никаких дополнительных начислений делать не нужно. Для расчёта используйте режим «выделить НДС» — калькулятор покажет, сколько из этой суммы составляет сам налог и какова стоимость без него.</p>
+                </div>
+
+                <div class="faq-item">
+                    <h3>А если написано «без НДС» или «НДС не облагается»?</h3>
+                    <p>Это означает, что к указанной сумме налог не добавлен. Если вам нужно узнать итоговую стоимость с учётом налога, используйте режим «начислить НДС». Если же на документе стоит «НДС не облагается» (например, при работе с ИП на патенте или при продаже медицинских услуг), то налог не начисляется вообще, и итоговая сумма равна указанной.</p>
+                </div>
+
+                <div class="faq-item">
+                    <h3>Можно ли использовать калькулятор для нестандартных ставок?</h3>
+                    <p>Да. Хотя в России действуют фиксированные ставки (22%, 10%, 7%, 5%, 0%), калькулятор позволяет ввести любое целое число от 0 до 100. Это может быть полезно для учебных целей, для расчётов по законодательству других стран или для моделирования сценариев при изменении налоговой политики.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <p>Агрегатор Калькуляторов © 2026</p>
+        </footer>
+    </div>
+
+    <script>
+        function updateInputLabel() {
+            const action = document.querySelector('input[name="action"]:checked').value;
+            const label = document.getElementById('amountLabel');
+            const input = document.getElementById('amount');
+
+            if (action === 'add') {
+                label.textContent = 'Сумма без НДС (₽):';
+                input.placeholder = 'Например: 1000';
+            } else if (action === 'extract') {
+                label.textContent = 'Сумма с НДС (₽):';
+                input.placeholder = 'Например: 1220';
+            } else if (action === 'by_vat') {
+                label.textContent = 'Сумма НДС (₽):';
+                input.placeholder = 'Например: 220';
+            }
+        }
+
+        function setupNumericInputs() {
+            const integerInputs = document.querySelectorAll('.integer-only');
+            integerInputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    this.value = this.value.replace(/[^0-9]/g, '');
+                });
+                input.addEventListener('paste', function(e) {
+                    e.preventDefault();
+                    const paste = (e.clipboardData || window.clipboardData).getData('text');
+                    const digitsOnly = paste.replace(/[^0-9]/g, '');
+                    if (digitsOnly) {
+                        document.execCommand('insertText', false, digitsOnly);
+                    }
+                });
+                input.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                }, { passive: false });
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                    }
+                });
+            });
+
+            const decimalInputs = document.querySelectorAll('.decimal-only');
+            decimalInputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    let value = this.value.replace(/[^0-9.,]/g, '').replace(',', '.');
+                    const parts = value.split('.');
+                    if (parts.length > 2) {
+                        value = parts[0] + '.' + parts.slice(1).join('');
+                    }
+                    this.value = value;
+                });
+                input.addEventListener('paste', function(e) {
+                    e.preventDefault();
+                    const paste = (e.clipboardData || window.clipboardData).getData('text');
+                    const cleanPaste = paste.replace(/[^0-9.,]/g, '').replace(',', '.');
+                    if (cleanPaste) {
+                        document.execCommand('insertText', false, cleanPaste);
+                    }
+                });
+                input.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                }, { passive: false });
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                    }
+                });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateInputLabel();
+            setupNumericInputs();
+        });
+    </script>
+</body>
+</html>
