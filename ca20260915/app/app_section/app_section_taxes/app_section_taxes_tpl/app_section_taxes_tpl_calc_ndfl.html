@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Калькулятор НДФЛ — Налоги</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=PT+Sans:wght@400;700&family=PT+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app_section_taxes/app_section_taxes_static/app_section_taxes_static_style_ndfl.css">
+</head>
+<body>
+
+<div class="page">
+
+  <main>
+    <a href="/taxes" class="crumb"><span class="crumb-arrow">←</span> Вернуться к разделу Налоги</a>
+
+    <h1>Калькулятор НДФЛ</h1>
+    <p class="lede">Рассчитайте НДФЛ с вашего дохода с учётом прогрессивной шкалы налогообложения.</p>
+
+    <div class="calc">
+      <p class="calc-label">Тип расчёта</p>
+
+      <form method="post" action="/taxes/ndfl" id="ndflForm">
+        <div class="mode-group" id="modeGroup">
+          <label class="mode-option {% if input_mode == 'flat' or not input_mode %}active{% endif %}">
+            <input type="radio" name="mode" value="flat" {% if input_mode == 'flat' or not input_mode %}checked{% endif %}>
+            <span>
+              <span class="t">По указанной ставке</span>
+              <span class="d">Расчёт по единой фиксированной ставке (например, 13% или 15%)</span>
+            </span>
+          </label>
+          <label class="mode-option {% if input_mode == 'progressive' %}active{% endif %}">
+            <input type="radio" name="mode" value="progressive" {% if input_mode == 'progressive' %}checked{% endif %}>
+            <span>
+              <span class="t">Прогрессивная шкала</span>
+              <span class="d">Расчёт с учётом порогов годового дохода (13% – 22%)</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="income">Доход (₽)</label>
+            <div class="input-with-select">
+              <input type="number" id="income" name="income" class="main-input" value="{{ input_income or '' }}" placeholder="Введите сумму" required>
+              <select name="income_type" class="inline-select">
+                <option value="before" {% if input_income_type == 'before' or not input_income_type %}selected{% endif %}>до вычета налога</option>
+                <option value="after" {% if input_income_type == 'after' %}selected{% endif %}>после вычета налога</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field" id="flatRateField" style="{% if input_mode == 'progressive' %}display:none;{% endif %}">
+            <label for="rate">Ставка НДФЛ (%)</label>
+            <input
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              id="rate"
+              name="rate"
+              value="{{ input_rate or 13 }}"
+              class="main-input integer-only"
+              autocomplete="off"
+            >
+          </div>
+        </div>
+
+        <button type="submit" class="calc-btn">Рассчитать</button>
+
+        {% if result %}
+        {% if result.mode == 'progressive' %}
+        <div class="result">
+          {% if result.income_type == 'after' %}
+            <div class="result-line">
+              <span class="k">Сумма до налогообложения</span>
+              <div class="result-top"><span class="v">{{ result.gross_rounded|rub }}</span></div>
+              <div class="result-words"><span class="w">{{ result.gross_rounded|words }}</span></div>
+            </div>
+            <div class="result-line">
+              <span class="k">НДФЛ</span>
+              <div class="result-top"><span class="v">{{ result.tax_rounded|rub }}</span></div>
+              <div class="result-words"><span class="w">{{ result.tax_rounded|words }}</span></div>
+            </div>
+            <p class="rounding-note">По закону сумма округляется до целого рубля</p>
+          {% else %}
+            <div class="result-line">
+              <span class="k">НДФЛ</span>
+              <div class="result-top"><span class="v">{{ result.tax_rounded|rub }}</span></div>
+              <div class="result-words"><span class="w">{{ result.tax_rounded|words }}</span></div>
+            </div>
+            <p class="rounding-note">По закону сумма округляется до целого рубля</p>
+            <div class="result-line">
+              <span class="k">Сумма после налогообложения</span>
+              <div class="result-top"><span class="v">{{ result.net_rounded|rub }}</span></div>
+              <div class="result-words"><span class="w">{{ result.net_rounded|words }}</span></div>
+            </div>
+          {% endif %}
+
+          <h3 class="calc-subheading">Расчет</h3>
+          {% if result.income_type != 'after' %}
+          <p class="taxable-base">Налоговая база: {{ result.taxable_base_raw|rub }}</p>
+          {% endif %}
+
+          <div class="batch-table-wrap">
+            <table class="batch-table">
+              <thead>
+                <tr>
+                  <th>Ставка</th>
+                  <th>Доход</th>
+                  <th>Налог</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in result.breakdown %}
+                <tr>
+                  <td>{{ row.rate_percent }} % ({{ row.limit_label }})</td>
+                  <td>{{ row.income|rub }}</td>
+                  <td>{{ row.tax|rub }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="total-row">
+                  <td>Всего:</td>
+                  <td>{{ result.gross_raw|rub }}</td>
+                  <td>{{ result.tax_raw|rub }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="avg-rate">
+            <span class="k">Усредненная ставка</span>
+            <span class="v">{{ result.avg_rate_display }} %</span>
+          </div>
+        </div>
+        {% else %}
+        <div class="result">
+          <div class="result-line">
+            <span class="k">Сумма дохода</span>
+            <div class="result-top">
+              <span class="v">{{ result.income|rub }}</span>
+            </div>
+          </div>
+          <div class="result-line">
+            <span class="k">Сумма НДФЛ</span>
+            <div class="result-top">
+              <span class="v">{{ result.tax|rub }}</span>
+            </div>
+          </div>
+          <div class="result-line final">
+            <span class="k">На руки (или всего к начислению)</span>
+            <div class="result-top">
+              <span class="v">{{ result.net_income|rub }}</span>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% endif %}
+
+        <div class="calc-actions">
+          <button type="button" class="action-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+            Улучшить калькулятор
+          </button>
+          <button type="button" class="action-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            В избранное
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="banner-slot banner-mobile"><span>МЕСТО ПОД БАННЕР<br>300 × 500</span></div>
+
+    <section class="explain">
+      <h2>Прогрессивная шкала</h2>
+      <div class="batch-table-wrap" style="max-height: none; margin-bottom: 24px;">
+        <table class="batch-table">
+          <thead>
+            <tr>
+              <th>Годовой доход</th>
+              <th>Ставка</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>до 2,4 млн руб.</td><td>13%</td></tr>
+            <tr><td>выше 2,4 млн руб. и до 5 млн руб.</td><td>15%</td></tr>
+            <tr><td>выше 5 млн руб. и до 20 млн руб.</td><td>18%</td></tr>
+            <tr><td>выше 20 млн руб. и до 50 млн руб.</td><td>20%</td></tr>
+            <tr><td>выше 50 млн руб.</td><td>22%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Пример</h3>
+      <p>Если сотрудник заработал за год 6 000 000 рублей, то он заплатит:</p>
+      <div class="example-block">
+        <div class="example-step">
+          <span class="step-formula">13% от суммы 2 400 000 руб.</span>
+        </div>
+        <div class="example-step">
+          <span class="step-formula">15% от суммы 2 600 000 руб. (5 000 000 - 2 400 000)</span>
+        </div>
+        <div class="example-step">
+          <span class="step-formula">18% от суммы 1 000 000 руб. (6 000 000 - 5 000 000)</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="explain">
+      <h2>Формула для расчета НДФЛ</h2>
+      <p>Калькулятор НДФЛ производит расчет по следующим формулам:</p>
+
+      <p><strong>Если известна сумма до налога:</strong></p>
+      <div class="formula">НДФЛ = Налоговая база × Ставка</div>
+      <p class="muted">Налоговая база — это сумма доходов, которые подлежат налогообложению. Для расчета НДФЛ по прогрессивной шкале нужно налоговую базу делить на соответствующие части и применять формулу несколько раз с разной ставкой.</p>
+
+      <p style="margin-top: 24px;"><strong>Если известна сумма после вычета налога:</strong></p>
+      <div class="formula">НДФЛ = Сумма × (Ставка / (1 − Ставка))</div>
+      <p class="muted">Эта формула подходит для расчета линейного налога по единой ставке. Расчет по прогрессивной шкале довольно сложный и требует использования калькулятора.</p>
+    </section>
+
+    <section class="explain">
+      <h2>Пени за неуплату НДФЛ</h2>
+      <p>НДФЛ подлежит уплате до 15 июля. В случае неуплаты налога в срок, начиная с 16 июля на сумму задолженности за каждый календарный день просрочки будут начисляться пени в размере 1/300 ключевой ставки ЦБ РФ.</p>
+    </section>
+
+    <section class="explain">
+      <h2>Ответы на частые вопросы о расчёте НДФЛ</h2>
+      <div class="qa">
+        <details class="qa-item">
+          <summary><h3>Как рассчитать НДФЛ с зарплаты?</h3><span class="qa-toggle">+</span></summary>
+          <p>Для расчета НДФЛ с зарплаты нужно выбрать соответствующий вид дохода и указать сумму начисленного дохода. Обычно берется сумма до удержания налога, то есть зарплата «грязными». Если у работника есть налоговый вычет, его можно указать в отдельном поле. Калькулятор уменьшит доход на сумму вычета и рассчитает налог с полученной налоговой базы.<br><br>Если доход за год не превышает первый предел прогрессивной шкалы, применяется ставка 13%. Если годовой доход становится выше установленного лимита, повышенная ставка применяется только к сумме превышения, а не ко всей зарплате целиком.</p>
+        </details>
+        <details class="qa-item">
+          <summary><h3>Можно ли считать НДФЛ с дохода за год?</h3><span class="qa-toggle">+</span></summary>
+          <p>Да, для прогрессивной шкалы годовой доход особенно важен, потому что ставки зависят от общей суммы дохода за налоговый период. Если нужно понять примерную сумму НДФЛ за год, в поле дохода следует указать годовую сумму по выбранному виду дохода.<br><br>Например, если человек хочет рассчитать налог с зарплаты за год, он может сложить начисления за все месяцы и ввести получившуюся сумму. При наличии вычетов их также нужно учитывать отдельно. Калькулятор распределит доход по диапазонам шкалы и покажет итоговую сумму налога.</p>
+        </details>
+        <details class="qa-item">
+          <summary><h3>Почему при большом доходе ставка не применяется ко всей сумме сразу?</h3><span class="qa-toggle">+</span></summary>
+          <p>Прогрессивная шкала устроена так, что повышенная ставка применяется только к той части дохода, которая превышает установленный порог. Например, если доход превысил 2,4 млн рублей, ставка 15% применяется не ко всей сумме дохода, а только к части сверх 2,4 млн рублей и до следующего лимита.<br><br>Такой расчет позволяет точнее определить налог по каждому диапазону. Поэтому итоговая сумма НДФЛ складывается из нескольких частей, рассчитанных по разным ставкам.</p>
+        </details>
+        <details class="qa-item">
+          <summary><h3>Как округляется результат расчета НДФЛ?</h3><span class="qa-toggle">+</span></summary>
+          <p>Результат расчета может отображаться с копейками или округляться до рублей — это зависит от формата вывода на странице. При практическом расчете НДФЛ обычно используют округление по общему правилу: сумма менее 50 копеек отбрасывается, сумма 50 копеек и более округляется до полного рубля в большую сторону.<br><br>Если калькулятор показывает промежуточные значения с копейками, их удобно использовать для проверки формулы. Итоговую сумму налога для документов обычно смотрят уже в округленном виде.</p>
+        </details>
+        <details class="qa-item">
+          <summary><h3>Что показывает итоговая сумма налога?</h3><span class="qa-toggle">+</span></summary>
+          <p>Итоговая сумма налога показывает размер НДФЛ, рассчитанный по введенным данным. В расчет могут входить вид дохода, размер дохода, налоговый вычет, статус резидента или нерезидента, районный коэффициент и северная надбавка.<br><br>Если данные введены как доход до удержания налога, результат покажет сумму НДФЛ, которую нужно удержать или уплатить. Если расчет ведется от суммы после налога, калькулятор помогает определить, какой налог был включен в исходный доход.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <aside>
+    <div class="sticky">
+      <div class="banner-slot banner-desktop"><span>МЕСТО ПОД БАННЕР<br>300 × 500</span></div>
+
+      <div class="side-block">
+        <h4>Ещё в этой категории</h4>
+        <ul class="side-links">
+          <li><a href="/taxes/nds">Калькулятор НДС <span class="arrow">→</span></a></li>
+          <li><a href="/taxes/ndfl" class="current">Калькулятор НДФЛ <span class="arrow">→</span></a></li>
+        </ul>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+  // Простой скрипт для скрытия/показа поля "Ставка" в зависимости от выбора
+  const modeGroup = document.getElementById('modeGroup');
+  const flatRateField = document.getElementById('flatRateField');
+
+  modeGroup.addEventListener('change', (e) => {
+    if (e.target.name === 'mode') {
+      if (e.target.value === 'progressive') {
+        flatRateField.style.display = 'none';
+      } else {
+        flatRateField.style.display = 'flex';
+      }
+    }
+  });
+
+  // Ограничение поля "Ставка НДФЛ" только целыми числами
+  document.querySelectorAll('.integer-only').forEach((input) => {
+    input.addEventListener('input', function () {
+      this.value = this.value.replace(/[^0-9]/g, '');
+    });
+    input.addEventListener('paste', function (e) {
+      e.preventDefault();
+      const paste = (e.clipboardData || window.clipboardData).getData('text');
+      const digitsOnly = paste.replace(/[^0-9]/g, '');
+      if (digitsOnly) document.execCommand('insertText', false, digitsOnly);
+    });
+  });
+</script>
+
+</body>
+</html>
