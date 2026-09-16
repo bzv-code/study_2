@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Инвестиционный калькулятор сложного процента — расчёт доходности с пополнением</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=PT+Sans:wght@400;700&family=PT+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app_section_calc_investment/app_section_calc_investment_static/app_section_calc_investment_static_style_compound_interest.css">
+</head>
+<body>
+
+<div class="page">
+
+  <main>
+    <a href="/investment" class="crumb"><span class="crumb-arrow">←</span> Вернуться к разделу Инвестиции</a>
+
+    <h1>Калькулятор сложного процента</h1>
+    <p class="lede">Поможет оценить потенциальную доходность ваших вложений, а также найти срок, ставку или стартовый капитал, необходимый для достижения цели.</p>
+
+    <div class="calc">
+
+      {% if error %}
+      <div class="calc-alert">⚠️ {{ error }}</div>
+      {% endif %}
+
+      {% if result and not result.solved_ok %}
+      <div class="calc-alert calc-alert-warn">⚠️ Точного решения с заданными параметрами не нашлось — показан ближайший возможный результат (проверьте, не противоречат ли условия друг другу).</div>
+      {% endif %}
+
+      <form method="post" action="/investment/compound-interest" class="calc-form" id="compoundForm">
+
+        <div class="field-row cols-2">
+          <div class="field">
+            <label for="mode">Вычислить</label>
+            <select id="mode" name="mode" class="select-input">
+              {% for opt in mode_options %}
+              <option value="{{ opt.value }}" {% if input_mode == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="field-row cols-2" id="principalRateRow">
+          <div class="field" id="principalField" style="{% if input_mode == 'principal' %}display:none;{% endif %}">
+            <label for="principal">Стартовый капитал (₽)</label>
+            <input type="text" inputmode="decimal" id="principal" name="principal" value="{{ input_principal }}" class="decimal-only" autocomplete="off">
+          </div>
+
+          <div class="field" id="rateField" style="{% if input_mode == 'rate' %}display:none;{% endif %}">
+            <label for="rate">Ставка (% годовых)</label>
+            <input type="text" inputmode="decimal" id="rate" name="rate" value="{{ input_rate }}" class="decimal-only" autocomplete="off">
+          </div>
+
+          <div class="field" id="targetAmountField" style="{% if input_mode == 'income' %}display:none;{% endif %}">
+            <label for="target_amount">Целевая (итоговая) сумма (₽)</label>
+            <input type="text" inputmode="decimal" id="target_amount" name="target_amount" value="{{ input_target_amount }}" class="decimal-only" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="field-row cols-2" id="termField" style="{% if input_mode == 'term' %}display:none;{% endif %}">
+          <div class="field">
+            <label for="term_value">Срок инвестирования</label>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" id="term_value" name="term_value" value="{{ input_term_value }}" class="integer-only" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="term_unit">&nbsp;</label>
+            <select id="term_unit" name="term_unit" class="select-input">
+              <option value="years" {% if input_term_unit == 'years' %}selected{% endif %}>лет</option>
+              <option value="months" {% if input_term_unit == 'months' %}selected{% endif %}>месяцев</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="checkbox-row">
+          <input type="checkbox" id="reinvest" name="reinvest" value="1" {% if input_reinvest %}checked{% endif %}>
+          <span>
+            <span class="t">Реинвестировать доход</span>
+            <span class="d">Проценты присоединяются к капиталу и далее тоже приносят доход (сложный процент). Без реинвестирования используются простые проценты</span>
+          </span>
+        </label>
+
+        <div class="field conditional-fields" id="reinvestFrequencyField" style="{% if not input_reinvest %}display:none;{% endif %}">
+          <label for="reinvest_frequency">Периодичность реинвестирования</label>
+          <select id="reinvest_frequency" name="reinvest_frequency" class="select-input">
+            {% for opt in frequency_options %}
+            <option value="{{ opt.value }}" {% if input_reinvest_frequency == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="subblock">
+          <label class="checkbox-row">
+            <input type="checkbox" id="contribution_enabled" name="contribution_enabled" value="1" {% if input_contribution_enabled %}checked{% endif %}>
+            <span>
+              <span class="t">Доп. вложения / изъятия</span>
+              <span class="d">Регулярное пополнение или частичное снятие средств</span>
+            </span>
+          </label>
+
+          <div class="conditional-fields" id="contributionFields" style="{% if not input_contribution_enabled %}display:block;{% else %}display:block;{% endif %}{% if not input_contribution_enabled %}display:none;{% endif %}">
+            <div class="field-row cols-3" id="contributionAmountRow" style="{% if input_mode == 'contribution' %}display:none;{% endif %}">
+              <div class="field">
+                <label for="contribution">Сумма (₽)</label>
+                <input type="text" inputmode="decimal" id="contribution" name="contribution" value="{{ input_contribution }}" class="decimal-only" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="contribution_type">Тип</label>
+                <select id="contribution_type" name="contribution_type" class="select-input">
+                  <option value="add" {% if input_contribution_type == 'add' %}selected{% endif %}>Пополнение</option>
+                  <option value="withdraw" {% if input_contribution_type == 'withdraw' %}selected{% endif %}>Изъятие</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="contribution_frequency">Периодичность</label>
+                <select id="contribution_frequency" name="contribution_frequency" class="select-input">
+                  {% for opt in contribution_frequency_options %}
+                  <option value="{{ opt.value }}" {% if input_contribution_frequency == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="field" style="margin-top:16px;">
+              <label for="contribution_growth">Увеличивать взнос на, % ежегодно</label>
+              <input type="text" inputmode="decimal" id="contribution_growth" name="contribution_growth" value="{{ input_contribution_growth }}" class="decimal-only" autocomplete="off">
+            </div>
+          </div>
+        </div>
+
+        <div class="subblock">
+          <label class="checkbox-row">
+            <input type="checkbox" id="apply_tax" name="apply_tax" value="1" {% if input_apply_tax %}checked{% endif %}>
+            <span>
+              <span class="t">Налог</span>
+              <span class="d">Учитывать НДФЛ с инвестиционного дохода (13% / 15%)</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="subblock">
+          <label class="checkbox-row">
+            <input type="checkbox" id="consider_inflation" name="consider_inflation" value="1" {% if input_consider_inflation %}checked{% endif %}>
+            <span>
+              <span class="t">Инфляция</span>
+              <span class="d">Показать реальную итоговую сумму с поправкой на ожидаемую инфляцию</span>
+            </span>
+          </label>
+          <div class="conditional-fields" id="inflationFields" style="{% if not input_consider_inflation %}display:block;{% endif %}{% if not input_consider_inflation %}display:none;{% endif %}">
+            <div class="field">
+              <label for="inflation_rate">Ожидаемая инфляция (% годовых)</label>
+              <input type="text" inputmode="decimal" id="inflation_rate" name="inflation_rate" value="{{ input_inflation_rate }}" class="decimal-only" autocomplete="off">
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="calc-btn" id="calcBtn">Рассчитать</button>
+
+        {% if result %}
+        <div class="result" id="result">
+
+          <div class="result-grid">
+            {% if result.mode == 'principal' %}
+            <div class="result-line">
+              <span class="k">Требуемый стартовый капитал</span>
+              <div class="result-top"><span class="v">{{ result.principal|rub }}</span></div>
+            </div>
+            {% elif result.mode == 'rate' %}
+            <div class="result-line">
+              <span class="k">Требуемая ставка</span>
+              <div class="result-top"><span class="v">{{ result.rate }} % годовых</span></div>
+            </div>
+            {% elif result.mode == 'term' %}
+            <div class="result-line">
+              <span class="k">Требуемый срок</span>
+              <div class="result-top">
+                <span class="v">
+                  {% if input_term_unit == 'years' %}
+                    {{ (result.term_months / 12) | round | int }} лет
+                  {% else %}
+                    {{ result.term_months }} мес.
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+            {% elif result.mode == 'contribution' %}
+            <div class="result-line">
+              <span class="k">Требуемый размер взноса</span>
+              <div class="result-top"><span class="v">{{ result.contribution|rub }}</span></div>
+            </div>
+            {% endif %}
+
+            <div class="result-line">
+              <span class="k">Сумма всех пополнений</span>
+              <div class="result-top"><span class="v">{{ result.total_contributions|rub }}</span></div>
+            </div>
+
+            <div class="result-line">
+              <span class="k">Доход</span>
+              <div class="result-top">
+                <span class="v" id="rIncome">{{ result.income_after_tax|rub }}</span>
+                <button class="copy-btn" data-copy="rIncome" aria-label="Скопировать" type="button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="1.5"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>
+                </button>
+              </div>
+              {% if result.tax_amount %}<span class="hint-link">из них налог {{ result.tax_amount|rub }}</span>{% endif %}
+            </div>
+
+            <div class="result-line">
+              <span class="k">Итоговая сумма</span>
+              <div class="result-top">
+                <span class="v" id="rFinal">{{ result.final_amount|rub }}</span>
+                <button class="copy-btn" data-copy="rFinal" aria-label="Скопировать" type="button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="1.5"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="result-line final">
+              <span class="k">Прирост</span>
+              <div class="result-top"><span class="v">{{ result.growth_percent }} %</span></div>
+            </div>
+
+            {% if result.real_final_amount is not none %}
+            <div class="result-line">
+              <span class="k">Реальная итоговая сумма (с учётом инфляции)</span>
+              <div class="result-top"><span class="v">{{ result.real_final_amount|rub }}</span></div>
+            </div>
+            {% endif %}
+          </div>
+
+          <h3 class="calc-subheading">Анализ</h3>
+          <div class="chart-block">
+            <div class="donut" style="background: conic-gradient(
+              var(--blue) 0% {{ result.chart_principal_share }}%,
+              var(--teal) {{ result.chart_principal_share }}% {{ result.chart_principal_share + result.chart_income_share }}%,
+              var(--gold) {{ result.chart_principal_share + result.chart_income_share }}% 100%
+            );"><div class="donut-hole"></div></div>
+            <div class="chart-legend">
+              <div class="legend-item"><span class="dot dot-blue"></span> Начальная сумма — {{ result.chart_principal_share }}%</div>
+              <div class="legend-item"><span class="dot dot-teal"></span> Доход — {{ result.chart_income_share }}%</div>
+              <div class="legend-item"><span class="dot dot-gold"></span> Пополнения — {{ result.chart_contributions_share }}%</div>
+            </div>
+          </div>
+
+          <h3 class="calc-subheading">График прироста</h3>
+          <div class="chart-toggle">
+            <button type="button" class="chart-toggle-btn active" data-chart-type="line">Линии</button>
+            <button type="button" class="chart-toggle-btn" data-chart-type="bar">Столбики</button>
+          </div>
+          <div class="growth-chart" id="growthChart"
+               data-labels="{{ result.chart.labels|join(',') }}"
+               data-principal="{{ result.chart.principal_line|join(',') }}"
+               data-contrib="{{ result.chart.contributions_line|join(',') }}"
+               data-income="{{ result.chart.income_line|join(',') }}">
+          </div>
+          <div class="chart-legend chart-legend-inline">
+            <div class="legend-item"><span class="dot dot-blue"></span> Начальный капитал</div>
+            <div class="legend-item"><span class="dot dot-gold"></span> Пополнения</div>
+            <div class="legend-item"><span class="dot dot-teal"></span> Доход</div>
+          </div>
+
+          <h3 class="calc-subheading">Таблица по годам</h3>
+          <div class="batch-table-wrap">
+            <table class="batch-table">
+              <thead>
+                <tr>
+                  <th>Период</th>
+                  <th>Начальная сумма</th>
+                  <th>Процентный доход</th>
+                  <th>Налог</th>
+                  <th>Вложения</th>
+                  <th>Конечная сумма</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in result.yearly_table %}
+                <tr>
+                  <td class="col-left">{{ row.period_label }}</td>
+                  <td>{{ row.start_balance|rub }}</td>
+                  <td>{{ row.interest_income|rub }}</td>
+                  <td>{% if row.tax_amount %}{{ row.tax_amount|rub }}{% else %}—{% endif %}</td>
+                  <td>{{ row.contributions|rub }}</td>
+                  <td>{{ row.end_balance|rub }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <p class="muted small">* Налог рассчитан упрощённо — единой суммой за весь срок (13% до 2,4 млн ₽ дохода, 15% сверх этой суммы), без разбивки по годам и без специальных вычетов, предусмотренных для банковских вкладов.</p>
+        </div>
+        {% endif %}
+      </form>
+
+      <div class="calc-actions">
+        <button type="button" class="action-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+          Улучшить калькулятор
+        </button>
+        <button type="button" class="action-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          В избранное
+        </button>
+      </div>
+    </div>
+
+    <div class="banner-slot banner-mobile"><span>МЕСТО ПОД БАННЕР<br>300 × 500</span></div>
+
+    <section class="explain">
+      <h2>Что умеет считать калькулятор</h2>
+      <p>Инвестиционный калькулятор помогает спрогнозировать доходность вложений, а также подобрать один из параметров под нужную цель:</p>
+      <ul class="explain-list">
+        <li><strong>Доход</strong> — по заданным стартовому капиталу, ставке, сроку и пополнениям.</li>
+        <li><strong>Ставку</strong> — под какой процент нужно инвестировать заданную сумму, чтобы получить целевую сумму в конце срока.</li>
+        <li><strong>Стартовый капитал</strong> — сколько денег нужно вложить, чтобы получить целевую сумму.</li>
+        <li><strong>Срок достижения цели</strong> — за какой срок можно получить целевую сумму при заданных условиях.</li>
+        <li><strong>Размер пополнений</strong> — на какую сумму нужно пополнять счёт ежемесячно (или с другой периодичностью), чтобы достичь цели.</li>
+      </ul>
+    </section>
+
+    <section class="explain">
+      <h2>Реинвестирование и сложный процент</h2>
+      <p>Сложный процент появляется, когда полученный от инвестирования доход вновь инвестируется — тогда проценты в дальнейшем начисляются уже на увеличенную сумму. С каждым периодом сумма на счёте растёт быстрее, чем при простых процентах.</p>
+      <div class="formula">A = P × (1 + r / n) <sup>n·t</sup></div>
+      <p class="muted">A — итоговая сумма, P — начальная сумма, r — годовая ставка, n — количество периодов начисления процентов в год, t — срок инвестиций в годах.</p>
+      <p>Если проценты не реинвестируются, доход считается по формуле простых процентов:</p>
+      <div class="formula">A = P × (1 + r × t)</div>
+    </section>
+
+    <section class="explain">
+      <h2>Ответы на частые вопросы</h2>
+      <div class="qa">
+        <details class="qa-item">
+          <summary><h3>В чём разница между простыми и сложными процентами?</h3><span class="qa-toggle">+</span></summary>
+          <p>При простых процентах доход считается только с первоначальной суммы и не участвует в дальнейшем начислении. При сложных процентах (реинвестировании) полученный доход присоединяется к капиталу и тоже начинает приносить проценты — итоговая доходность оказывается выше, особенно на длинных горизонтах.</p>
+        </details>
+        <details class="qa-item">
+          <summary><h3>Как учитываются регулярные пополнения?</h3><span class="qa-toggle">+</span></summary>
+          <p>Каждое пополнение начинает приносить доход с момента внесения и до конца срока инвестирования. Если включена ежегодная индексация взноса, сумма каждого следующего пополнения увеличивается на заданный процент.</p>
+        </details>
+        <details class="qa-item">
+          <summary><h3>Как рассчитывается налог?</h3><span class="qa-toggle">+</span></summary>
+          <p>Расчёт налога в этом калькуляторе упрощённый: 13% с инвестиционного дохода до 2,4 млн ₽ в год и 15% сверх этой суммы, без разбивки дохода по календарным годам и без специальных налоговых вычетов, которые применяются к отдельным видам вложений (например, к банковским вкладам или ИИС).</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <aside>
+    <div class="sticky">
+      <div class="banner-slot banner-desktop"><span>МЕСТО ПОД БАННЕР<br>300 × 500</span></div>
+
+      <div class="side-block">
+        <h4>Ещё в этой категории</h4>
+        <ul class="side-links">
+          <li><a href="/investment/deposit">Калькулятор вкладов <span class="arrow">→</span></a></li>
+          <li><a href="/investment/compound-interest" class="current">Калькулятор сложного процента <span class="arrow">→</span></a></li>
+        </ul>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<script src="/static/app_section_calc_investment/app_section_calc_investment_static/app_section_calc_investment_static_script_compound_interest.js"></script>
+</body>
+</html>

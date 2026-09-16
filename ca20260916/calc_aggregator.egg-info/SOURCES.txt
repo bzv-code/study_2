@@ -1,0 +1,10 @@
+pyproject.toml
+app/__init__.py
+app/app_core/__init__.py
+app/app_core/app_core_config.py
+app/app_core/app_core_logger.py
+calc_aggregator.egg-info/PKG-INFO
+calc_aggregator.egg-info/SOURCES.txt
+calc_aggregator.egg-info/dependency_links.txt
+calc_aggregator.egg-info/requires.txt
+calc_aggregator.egg-info/top_level.txt

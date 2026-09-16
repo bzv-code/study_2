@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Калькулятор вкладов онлайн — расчёт доходности депозита</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=PT+Sans:wght@400;700&family=PT+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app_section_calc_investment/app_section_calc_investment_static/app_section_calc_investment_static_style_deposit.css">
+</head>
+<body>
+
+<div class="page">
+
+  <main>
+    <a href="/investment" class="crumb"><span class="crumb-arrow">←</span> Вернуться к разделу Инвестиции</a>
+
+    <h1>Калькулятор вкладов</h1>
+    <p class="lede">Рассчитайте доходность вклада с учётом капитализации, пополнений, снятий и налога. Калькулятор покажет график начисления процентов и сумму к уплате с учётом НДФЛ.</p>
+
+    <div class="calc">
+
+      {% if error %}
+      <div class="calc-alert">⚠️ {{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="/investment/deposit" class="calc-form" id="depositForm">
+
+        <div class="field-row cols-2">
+          <div class="field">
+            <label for="amount">Сумма вклада (₽)</label>
+            <input type="text" inputmode="decimal" id="amount" name="amount" value="{{ input_amount }}" required class="decimal-only" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="rate">Процентная ставка (% годовых)</label>
+            <input type="text" inputmode="decimal" id="rate" name="rate" value="{{ input_rate }}" required class="decimal-only" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="field-row cols-2">
+          <div class="field">
+            <label for="period">Срок размещения</label>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" id="period" name="period" value="{{ input_period }}" required class="integer-only" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="period_unit">&nbsp;</label>
+            <select id="period_unit" name="period_unit" class="select-input">
+              <option value="months" {% if input_period_unit == 'months' %}selected{% endif %}>месяцев</option>
+              <option value="years" {% if input_period_unit == 'years' %}selected{% endif %}>лет</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-row cols-2">
+          <div class="field">
+            <label for="start_date">Начало срока</label>
+            <input type="date" id="start_date" name="start_date" value="{{ input_start_date }}" required>
+          </div>
+          <div class="field">
+            <label for="payout_frequency" id="payoutFrequencyLabel">Периодичность капитализации</label>
+            <select id="payout_frequency" name="payout_frequency" class="select-input">
+              {% for opt in payout_frequency_options %}
+              <option value="{{ opt.value }}" {% if input_payout_frequency == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="field-row cols-2">
+          <div class="field">
+            <label for="key_rate">Ключевая ставка ЦБ (%)</label>
+            <input type="text" inputmode="decimal" id="key_rate" name="key_rate" value="{{ input_key_rate }}" class="decimal-only" autocomplete="off">
+            <span class="field-hint">Используется для расчёта необлагаемой суммы: 1 000 000 ₽ × ключевая ставка</span>
+          </div>
+        </div>
+
+        <label class="checkbox-row">
+          <input type="checkbox" id="capitalization" name="capitalization" value="1" {% if input_capitalization %}checked{% endif %}>
+          <span>
+            <span class="t">Капитализация процентов</span>
+            <span class="d">Проценты присоединяются к телу вклада и в дальнейшем тоже приносят доход</span>
+          </span>
+        </label>
+
+        <div class="subblock">
+          <label class="checkbox-row">
+            <input type="checkbox" id="replenishment_enabled" name="replenishment_enabled" value="1" {% if input_replenishment_enabled %}checked{% endif %}>
+            <span>
+              <span class="t">+ Добавить пополнение</span>
+              <span class="d">Регулярное внесение средств на вклад</span>
+            </span>
+          </label>
+          <div class="field-row cols-2 conditional-fields" id="replenishmentFields" style="{% if not input_replenishment_enabled %}display:none;{% endif %}">
+            <div class="field">
+              <label for="replenishment_amount">Сумма пополнения (₽)</label>
+              <input type="text" inputmode="decimal" id="replenishment_amount" name="replenishment_amount" value="{{ input_replenishment_amount }}" class="decimal-only" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="replenishment_frequency">Периодичность</label>
+              <select id="replenishment_frequency" name="replenishment_frequency" class="select-input">
+                <option value="monthly" {% if input_replenishment_frequency == 'monthly' %}selected{% endif %}>раз в месяц</option>
+                <option value="quarterly" {% if input_replenishment_frequency == 'quarterly' %}selected{% endif %}>раз в квартал</option>
+                <option value="semiannual" {% if input_replenishment_frequency == 'semiannual' %}selected{% endif %}>раз в полгода</option>
+                <option value="annual" {% if input_replenishment_frequency == 'annual' %}selected{% endif %}>раз в год</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="subblock">
+          <label class="checkbox-row">
+            <input type="checkbox" id="withdrawal_enabled" name="withdrawal_enabled" value="1" {% if input_withdrawal_enabled %}checked{% endif %}>
+            <span>
+              <span class="t">+ Добавить частичное снятие</span>
+              <span class="d">Регулярное списание средств со вклада</span>
+            </span>
+          </label>
+          <div class="field-row cols-2 conditional-fields" id="withdrawalFields" style="{% if not input_withdrawal_enabled %}display:none;{% endif %}">
+            <div class="field">
+              <label for="withdrawal_amount">Сумма снятия (₽)</label>
+              <input type="text" inputmode="decimal" id="withdrawal_amount" name="withdrawal_amount" value="{{ input_withdrawal_amount }}" class="decimal-only" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="withdrawal_frequency">Периодичность</label>
+              <select id="withdrawal_frequency" name="withdrawal_frequency" class="select-input">
+                <option value="monthly" {% if input_withdrawal_frequency == 'monthly' %}selected{% endif %}>раз в месяц</option>
+                <option value="quarterly" {% if input_withdrawal_frequency == 'quarterly' %}selected{% endif %}>раз в квартал</option>
+                <option value="semiannual" {% if input_withdrawal_frequency == 'semiannual' %}selected{% endif %}>раз в полгода</option>
+                <option value="annual" {% if input_withdrawal_frequency == 'annual' %}selected{% endif %}>раз в год</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="subblock">
+          <label class="checkbox-row">
+            <input type="checkbox" id="consider_inflation" name="consider_inflation" value="1" {% if input_consider_inflation %}checked{% endif %}>
+            <span>
+              <span class="t">Учитывать инфляцию</span>
+              <span class="d">Показать реальную доходность вклада с поправкой на ожидаемую инфляцию</span>
+            </span>
+          </label>
+          <div class="field-row cols-2 conditional-fields" id="inflationFields" style="{% if not input_consider_inflation %}display:none;{% endif %}">
+            <div class="field">
+              <label for="inflation_rate">Ожидаемая инфляция (% годовых)</label>
+              <input type="text" inputmode="decimal" id="inflation_rate" name="inflation_rate" value="{{ input_inflation_rate }}" class="decimal-only" autocomplete="off">
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="calc-btn" id="calcBtn">Рассчитать</button>
+
+        {% if result %}
+        <div class="result" id="result">
+
+          <div class="result-grid">
+            <div class="result-line">
+              <span class="k">Начисленные проценты</span>
+              <div class="result-top">
+                <span class="v" id="rInterest">{{ result.accrued_interest|rub }}</span>
+                <button class="copy-btn" data-copy="rInterest" aria-label="Скопировать" type="button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="1.5"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="result-line">
+              <span class="k">Сумма вклада с процентами</span>
+              <div class="result-top">
+                <span class="v" id="rFinal">{{ result.final_balance|rub }}</span>
+                <button class="copy-btn" data-copy="rFinal" aria-label="Скопировать" type="button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="1.5"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="result-line">
+              <span class="k">Эффективная ставка</span>
+              <div class="result-top"><span class="v">{{ result.effective_rate }} %</span></div>
+            </div>
+
+            <div class="result-line">
+              <span class="k">Налог (НДФЛ)</span>
+              <div class="result-top"><span class="v">{{ result.tax_total|rub }}</span></div>
+            </div>
+
+            <div class="result-line">
+              <span class="k">Доход за вычетом налога</span>
+              <div class="result-top"><span class="v">{{ result.income_after_tax|rub }}</span></div>
+            </div>
+
+            <div class="result-line final">
+              <span class="k">Реальная доходность{% if input_consider_inflation %} (с учётом инфляции){% endif %}</span>
+              <div class="result-top"><span class="v">{{ result.real_yield_percent }} %</span></div>
+            </div>
+          </div>
+
+          <div class="chart-block">
+            <div class="donut" style="background: conic-gradient(
+              var(--gold) 0% {{ result.chart_principal_share }}%,
+              var(--teal) {{ result.chart_principal_share }}% {{ result.chart_principal_share + result.chart_replenishments_share }}%,
+              var(--blue) {{ result.chart_principal_share + result.chart_replenishments_share }}% 100%
+            );"><div class="donut-hole"></div></div>
+            <div class="chart-legend">
+              <div class="legend-item"><span class="dot dot-gold"></span> Начальный вклад — {{ result.chart_principal_share }}%</div>
+              <div class="legend-item"><span class="dot dot-teal"></span> Пополнения — {{ result.chart_replenishments_share }}%</div>
+              <div class="legend-item"><span class="dot dot-blue"></span> Проценты — {{ result.chart_interest_share }}%</div>
+            </div>
+          </div>
+
+          <h3 class="calc-subheading">График начисления процентов</h3>
+          <div class="batch-table-wrap">
+            <table class="batch-table schedule-table">
+              <thead>
+                <tr>
+                  <th>Дата</th>
+                  <th>Начислено процентов</th>
+                  <th>Изменение баланса</th>
+                  <th>Баланс</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in result.schedule %}
+                <tr>
+                  <td class="col-left">{{ row.date }}<span class="row-note">{{ row.change_label }}</span></td>
+                  <td>{% if row.accrued_interest %}{{ row.accrued_interest|rub }}{% else %}—{% endif %}</td>
+                  <td class="{% if row.balance_change > 0 %}positive{% elif row.balance_change < 0 %}negative{% endif %}">
+                    {% if row.balance_change > 0 %}+{{ row.balance_change|rub }}{% elif row.balance_change < 0 %}{{ row.balance_change|rub }}{% else %}—{% endif %}
+                  </td>
+                  <td>{{ row.balance|rub }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="calc-subheading">Налог на доход по вкладам</h3>
+          <div class="batch-table-wrap">
+            <table class="batch-table tax-table">
+              <thead>
+                <tr>
+                  <th>Год</th>
+                  <th>Доход</th>
+                  <th>Вычет</th>
+                  <th>Облагаемый налогом доход</th>
+                  <th>Сумма налога</th>
+                  <th>Оплатить до</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in result.tax_by_year %}
+                <tr>
+                  <td class="col-left">{{ row.year }}</td>
+                  <td>{{ row.income|rub }}</td>
+                  <td>{{ row.deduction|rub }}</td>
+                  <td>{{ row.taxable_income|rub }}</td>
+                  <td>{{ row.tax_amount|rub }}</td>
+                  <td>{{ row.pay_by }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <p class="muted small">* Расчёт налога приведён справочно и предполагает единую ключевую ставку ЦБ на весь срок вклада (уточните актуальную ставку выше). Налог уплачивается самостоятельно на основании данных, поступивших в ФНС от банка.</p>
+        </div>
+        {% endif %}
+      </form>
+
+      <div class="calc-actions">
+        <button type="button" class="action-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+          Улучшить калькулятор
+        </button>
+        <button type="button" class="action-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          В избранное
+        </button>
+      </div>
+    </div>
+
+    <div class="banner-slot banner-mobile"><span>МЕСТО ПОД БАННЕР<br>300 × 500</span></div>
+
+    <section class="explain">
+      <h2>Что такое банковский вклад (депозит)</h2>
+      <p>Вклад — это способ разместить свободные деньги в банке под проценты. Банк пользуется этими средствами и в качестве платы начисляет вкладчику процентный доход. Чем выше сумма вклада, срок и процентная ставка, тем больше будет итоговый доход.</p>
+    </section>
+
+    <section class="explain">
+      <h2>Капитализация процентов</h2>
+      <p>При капитализации начисленные проценты не выплачиваются сразу, а присоединяются к телу вклада — в результате следующие проценты начисляются уже на увеличенную сумму. Это увеличивает итоговую доходность по сравнению с вкладом без капитализации при той же номинальной ставке.</p>
+      <div class="formula">Эффективная ставка = ((1 + Ставка / N) ^ N − 1) × 100%</div>
+      <p class="muted">Здесь N — количество периодов капитализации в году. Чем чаще происходит капитализация, тем выше эффективная (реальная) годовая ставка по сравнению с номинальной.</p>
+    </section>
+
+    <section class="explain">
+      <h2>Налог на доход по вкладам</h2>
+      <p>С 2021 года проценты по вкладам облагаются НДФЛ. Налогом облагается не весь доход, а только сумма, превышающая необлагаемый минимум.</p>
+      <div class="formula">Необлагаемая сумма = 1 000 000 ₽ × Ключевая ставка ЦБ</div>
+      <p>С суммы превышения налог удерживается по ставке 13% (для дохода до 2,4 млн руб. в год) или 15% (для суммы, превышающей 2,4 млн руб.). ФНС получает данные о выплаченных процентах от банков самостоятельно и присылает уведомление с суммой к уплате — срок уплаты обычно до 1 декабря года, следующего за годом получения дохода.</p>
+    </section>
+
+    <section class="explain">
+      <h2>Ответы на частые вопросы о вкладах</h2>
+      <div class="qa">
+        <details class="qa-item">
+          <summary><h3>Что выгоднее: вклад с капитализацией или без?</h3><span class="qa-toggle">+</span></summary>
+          <p>При одинаковой номинальной ставке вклад с капитализацией всегда выгоднее, так как проценты начисляются не только на первоначальную сумму, но и на уже полученные ранее проценты. Разница особенно заметна на длинных сроках и при частой капитализации (например, ежемесячной).</p>
+        </details>
+        <details class="qa-item">
+          <summary><h3>Как рассчитывается налог, если вклад открыт на несколько лет?</h3><span class="qa-toggle">+</span></summary>
+          <p>Доход по вкладу распределяется по календарным годам, в которых фактически были получены (начислены или выплачены) проценты. Для каждого года отдельно применяется необлагаемый минимум и рассчитывается налог — поэтому в калькуляторе показана таблица с разбивкой по годам.</p>
+        </details>
+        <details class="qa-item">
+          <summary><h3>Нужно ли платить налог, если вклад досрочно закрыт?</h3><span class="qa-toggle">+</span></summary>
+          <p>Налог платится с фактически полученного дохода за календарный год, независимо от того, был ли вклад открыт полный срок или закрыт досрочно. Если в результате досрочного закрытия проценты были пересчитаны по более низкой ставке (обычно по ставке «до востребования»), налог рассчитывается уже с этой пересчитанной суммы.</p>
+        </details>
+        <details class="qa-item">
+          <summary><h3>Как влияют пополнения и снятия на доходность вклада?</h3><span class="qa-toggle">+</span></summary>
+          <p>Регулярные пополнения увеличивают базу, на которую начисляются проценты, и повышают итоговый доход. Частичные снятия, наоборот, уменьшают эту базу, что снижает доходность вклада в оставшийся период. Калькулятор учитывает точные даты пополнений и снятий при расчёте процентов.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <aside>
+    <div class="sticky">
+      <div class="banner-slot banner-desktop"><span>МЕСТО ПОД БАННЕР<br>300 × 500</span></div>
+
+      <div class="side-block">
+        <h4>Ещё в этой категории</h4>
+        <ul class="side-links">
+          <li><a href="/investment/deposit" class="current">Калькулятор вкладов <span class="arrow">→</span></a></li>
+        </ul>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<script src="/static/app_section_calc_investment/app_section_calc_investment_static/app_section_calc_investment_static_script_deposit.js"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Инвестиции — Агрегатор Калькуляторов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=PT+Sans:wght@400;700&family=PT+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app_section_calc_investment/app_section_calc_investment_static/app_section_calc_investment_static_style_hub.css">
+</head>
+<body>
+
+<div class="page page-hub">
+
+  <main>
+    <a href="/" class="crumb"><span class="crumb-arrow">←</span> Вернуться на главную</a>
+
+    <h1>Инвестиции</h1>
+    <p class="lede">Калькуляторы для расчёта доходности вкладов, инвестиций и накоплений. Точные расчёты с учётом капитализации, пополнений, снятий и налога на процентный доход.</p>
+
+    <div class="calculators-grid">
+      {% for calc in calculators %}
+      <a href="{{ calc.url }}" class="calc-card">
+        <h2 class="calc-card-title">{{ calc.name }}</h2>
+        <p class="calc-card-desc">{{ calc.description }}</p>
+        <span class="calc-card-arrow">→</span>
+      </a>
+      {% endfor %}
+    </div>
+
+    <div class="hub-info">
+      <h2>О разделе «Инвестиции»</h2>
+      <p>Здесь собраны инструменты для расчёта доходности банковских вкладов и других видов накоплений с учётом реальных условий: капитализации процентов, регулярных пополнений и снятий, а также налога на процентный доход.</p>
+
+      <div class="features-list">
+        <div class="feature-item">
+          <span class="feature-icon">✓</span>
+          <div>
+            <strong>Точный расчёт по дням</strong>
+            <span>Проценты считаются по фактическому количеству дней в каждом периоде</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">✓</span>
+          <div>
+            <strong>Учёт налога на вклады</strong>
+            <span>Калькулятор учитывает необлагаемую сумму и рассчитывает НДФЛ с процентного дохода по годам</span>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">✓</span>
+          <div>
+            <strong>Пополнения и снятия</strong>
+            <span>Можно смоделировать регулярное пополнение вклада или частичное снятие средств</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside>
+    <div class="sticky">
+      <div class="banner-slot"><span>МЕСТО ПОД БАННЕР<br>300 × 500</span></div>
+
+      <div class="side-block">
+        <h4>Популярные калькуляторы</h4>
+        <ul class="side-links">
+          <li><a href="/investment/deposit" class="current">Калькулятор вкладов <span class="arrow">→</span></a></li>
+          <li><a href="/investment/compound-interest">Калькулятор сложного процента <span class="arrow">→</span></a></li>
+        </ul>
+      </div>
+
+      <div class="side-block">
+        <h4>Скоро появятся</h4>
+        <ul class="side-links side-coming-soon">
+          <li><span class="coming-soon">Калькулятор доходности облигаций</span></li>
+          <li><span class="coming-soon">Калькулятор доходности инвестиций (ИИС)</span></li>
+        </ul>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+</body>
+</html>

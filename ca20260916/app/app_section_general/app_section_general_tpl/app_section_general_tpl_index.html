@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Агрегатор Калькуляторов — онлайн-калькуляторы для расчётов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=PT+Sans:wght@400;700&family=PT+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app_section_general/app_section_general_static_style_index.css">
+</head>
+<body>
+
+<div class="page page-index">
+
+  <main>
+    <!-- ===================== НАУЧНЫЙ КАЛЬКУЛЯТОР ===================== -->
+    <section class="sci-calc" id="sciCalc" aria-label="Научный калькулятор">
+      <div class="sci-calc-display">
+        <div class="sci-calc-history-line"></div>
+        <div class="sci-calc-value">0</div>
+      </div>
+
+      <div class="sci-calc-grid">
+        <!-- Ряд 1: режимы, факториал, лог, история, копирование, очистка -->
+        <button type="button" class="muted" data-mode="deg" title="Градусы">Deg</button>
+        <button type="button" class="muted" data-mode="rad" title="Радианы">Rad</button>
+        <button type="button" data-key="!">x!</button>
+        <button type="button" data-func="log">log</button>
+        <button type="button" class="icon-btn muted" data-action="history" title="История">🕐</button>
+        <button type="button" class="icon-btn muted" data-action="copy" title="Копировать результат">📋</button>
+        <button type="button" class="muted" data-action="clear-entry">CE</button>
+        <button type="button" class="danger" data-action="all-clear">AC</button>
+
+        <!-- Ряд 2: тригонометрия, Ans, скобки, умножение -->
+        <button type="button" data-func="sin">sin</button>
+        <button type="button" data-func="cos">cos</button>
+        <button type="button" data-func="tan">tan</button>
+        <button type="button" data-func="ln">ln</button>
+        <button type="button" class="muted" data-action="ans">Ans</button>
+        <button type="button" class="muted" data-key="(">(</button>
+        <button type="button" class="muted" data-key=")">)</button>
+        <button type="button" class="op" data-key="×">×</button>
+
+        <!-- Ряд 3: обратная тригонометрия, π, 7 8 9, деление -->
+        <button type="button" data-func="asin">sin<span class="sup">-1</span></button>
+        <button type="button" data-func="acos">cos<span class="sup">-1</span></button>
+        <button type="button" data-func="atan">tan<span class="sup">-1</span></button>
+        <button type="button" data-key="π">π</button>
+        <button type="button" data-key="7">7</button>
+        <button type="button" data-key="8">8</button>
+        <button type="button" data-key="9">9</button>
+        <button type="button" class="op" data-key="÷">÷</button>
+
+        <!-- Ряд 4: степени, корни, 4 5 6, минус -->
+        <button type="button" data-key="^2">x<span class="sup">2</span></button>
+        <button type="button" data-key="^">x<span class="sup">y</span></button>
+        <button type="button" data-func="sqrt">√</button>
+        <button type="button" data-key="√"><span class="sup">x</span>√y</button>
+        <button type="button" data-key="4">4</button>
+        <button type="button" data-key="5">5</button>
+        <button type="button" data-key="6">6</button>
+        <button type="button" class="op" data-key="-">−</button>
+
+        <!-- Ряд 5: e, экспонента, 1 2 3, плюс -->
+        <button type="button" data-key="e">e</button>
+        <button type="button" data-key="e^">e<span class="sup">x</span></button>
+        <button type="button" data-key="10^">10<span class="sup">x</span></button>
+        <button type="button" class="muted" data-action="exp">EXP</button>
+        <button type="button" data-key="1">1</button>
+        <button type="button" data-key="2">2</button>
+        <button type="button" data-key="3">3</button>
+        <button type="button" class="op" data-key="+">+</button>
+
+        <!-- Ряд 6: процент, 0, точка, равно -->
+        <button type="button" class="muted" data-key="%" style="grid-column:5">%</button>
+        <button type="button" data-key="0" style="grid-column:6">0</button>
+        <button type="button" data-key="." style="grid-column:7">.</button>
+        <button type="button" class="eq" data-action="equals" style="grid-column:8">=</button>
+      </div>
+
+      <div class="sci-calc-history-panel">
+        <div class="sci-calc-history-list"></div>
+      </div>
+    </section>
+
+    <!-- ===================== КАТАЛОГ РАЗДЕЛОВ ===================== -->
+    <h2 style="font-family:var(--serif); font-size:1.55rem; margin:0 0 20px;">Калькуляторы</h2>
+    <div class="sections-grid">
+      {% for section in sections %}
+      <div class="section-card">
+        <h3 class="section-card-title">{{ section.name }}</h3>
+        <ul class="section-card-links">
+          {% for calc in section.calculators %}
+          <li><a href="{{ calc.url }}">{{ calc.name }} <span class="arrow">→</span></a></li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </div>
+  </main>
+
+  <aside>
+    <div class="sticky">
+      <div class="banner-slot"><span>МЕСТО ПОД БАННЕР<br>300 × 500</span></div>
+
+      <div class="side-block">
+        <h4>Популярные калькуляторы</h4>
+        <ul class="side-links">
+          {% for section in sections %}
+          {% for calc in section.calculators %}
+          <li><a href="{{ calc.url }}">{{ calc.name }} <span class="arrow">→</span></a></li>
+          {% endfor %}
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<script src="/static/app_section_general/app_section_general_static_script_calc_scientific.js"></script>
+</body>
+</html>
